@@ -1,0 +1,49 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribuciones / builds
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDEs
+.idea/
+.vscode/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Variables de entorno / secretos
+.env
+.env.*
+
+# Logs
+*.log
+
+# Coverage / testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# Datasets
+data/raw/*
+data/processed/*
+
+# Mantener las carpetas aunque estén vacías
+!data/raw/.gitkeep
+!data/processed/.gitkeep
