@@ -23,7 +23,7 @@ ds = load_data()
 # Streamlit title
 st.markdown("""
     <h1 style='text-align: center; color: #1DB954;'>
-        🎵 Dataset Audit
+        🎹 Dataset Audit
     </h1>
     <p style='text-align: center; color: gray;'>
         Exploratory Data Analysis - Profiling
