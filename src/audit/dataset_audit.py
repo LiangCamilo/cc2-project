@@ -58,3 +58,18 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
 )
+
+st.divider()
+
+#Null verify
+
+st.subheader('Row Count Of Null/NaN Values')
+dsNullNanTable = pd.DataFrame(
+    ds.isna().sum()
+)
+
+st.dataframe(
+    dsNullNanTable, 
+    use_container_width=True,
+    hide_index=True,
+)
