@@ -78,7 +78,7 @@ metadata = {
     },
     "duration_ms": {
         "Description": "Duration of the song.",
-        "Type": "Numeric, recorded as integers",  # Cambiado a Type para consistencia, o puedes volver a usar 'Nature'
+        "Type": "Numeric, recorded as integers",
         "Unit or scale": "Milliseconds",
         "Documented domain": "Limits not specified (Starts at >0)",
     }, 
@@ -169,14 +169,18 @@ metadata = {
 }
 st.subheader('🔍 Data Dictionary')
 
-dsColumnsTable = pd.DataFrame(
-    list(ds.dtypes.astype(str).items()), 
-    columns=['Column Name', 'Data Type']
-)
+dataDictionary = pd.DataFrame({
+    "Variable": ds.columns,
+    "Panda Type": ds.dtypes.astype(str).to_numpy(),
+    "Description": [metadata.get(col, {}).get("Description", "No documentado") for col in ds.columns],
+    "Type": [metadata.get(col, {}).get("Type", "No documentado") for col in ds.columns],
+    "Unit or scale": [metadata.get(col, {}).get("Unit or scale", "No documentado") for col in ds.columns],
+    "Documented domain": [metadata.get(col, {}).get("Documented domain", "No documentado") for col in ds.columns],
+})
 
 #Streamlit dataset
 st.dataframe(
-    dsColumnsTable, 
+    dataDictionary, 
     use_container_width=True,
     hide_index=True,
 )
