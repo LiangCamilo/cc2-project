@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from .common import show_rows
+from audit.ui.common import show_rows
 
 
 def render_distributions(ds, audit, metadata):

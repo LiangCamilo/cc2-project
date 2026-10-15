@@ -2,16 +2,16 @@
 
 import streamlit as st
 
-from data_access import compute_audit, load_dataset
-from data_dictionary import COLUMN_METADATA
-from ui.exploration import render_distributions, render_genres
-from ui.overview import (
+from common.data_access import compute_audit, load_dataset
+from audit.data_dictionary import COLUMN_METADATA
+from audit.ui.exploration import render_distributions, render_genres
+from audit.ui.overview import (
     render_dictionary,
     render_dimensions,
     render_header,
     render_missing_values,
 )
-from ui.quality import (
+from audit.ui.quality import (
     render_duplicates,
     render_findings,
     render_repeated_tracks,
