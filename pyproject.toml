@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cc2-project"
+version = "0.1.0"
+description = "Auditoria y preparacion del dataset de recomendacion musical"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["common", "common.*", "audit", "audit.*", "clean", "clean.*"]
+namespaces = false
