@@ -17,3 +17,21 @@ def render_nulls(data):
     st.write("All rows for tracks with missing data:")
     st.write("Matching rows:", len(related_rows))
     st.dataframe(related_rows)
+
+    rows_to_remove = (
+        data[["artists", "album_name", "track_name"]]
+        .isna()
+        .all(axis=1)
+        & data["duration_ms"].eq(0)
+    )
+
+    cleaned_data = data.loc[~rows_to_remove].copy()
+
+    st.write("Rows removed:", int(rows_to_remove.sum()))
+    st.write("Remaining rows:", len(cleaned_data))
+    st.write(
+        "Remaining rows with missing data:",
+        int(cleaned_data.isna().any(axis=1).sum()),
+    )
+
+    return cleaned_data

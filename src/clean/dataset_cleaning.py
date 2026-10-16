@@ -1,4 +1,7 @@
 import streamlit as st
+from clean.duplicates.duplicates_cleaning import (
+    render_duplicates,
+)
 
 from pathlib import Path
 
@@ -17,6 +20,8 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 DATASET_PATH = PROJECT_DIR / "data" / "raw" / "dataset.csv"
 
 def main():
+
+    cleaned_data = None
     
     try:
         data, fingerprint = load_dataset()
@@ -31,7 +36,10 @@ def main():
     )
     st.title("Spotify Tracks Dataset Cleaning")
     st.write("This page shows the cleaning steps applied to the Spotify Tracks dataset.")
-    render_nulls(data)
+
+    cleaned_data = render_nulls(data)
+    render_duplicates(cleaned_data)
+
 
 
 
