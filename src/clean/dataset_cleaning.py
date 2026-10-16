@@ -2,6 +2,9 @@ import streamlit as st
 from clean.duplicates.duplicates_cleaning import (
     render_duplicates,
 )
+from clean.genres.genres_cleaning import (
+    render_track_genres,
+)
 
 from pathlib import Path
 
@@ -38,7 +41,8 @@ def main():
     st.write("This page shows the cleaning steps applied to the Spotify Tracks dataset.")
 
     cleaned_data = render_nulls(data)
-    render_duplicates(cleaned_data)
+    cleaned_data = render_duplicates(cleaned_data)
+    track_genres = render_track_genres(cleaned_data)
 
 
 
