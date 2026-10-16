@@ -1,3 +1,5 @@
+import numpy as np
+import pandas as pd
 import streamlit as st
 
 
@@ -77,5 +79,54 @@ def render_time_signature_review(tracks):
         "Tracks marked for time signature review:",
         int(reviewed_tracks["time_signature_review"].sum()),
     )
+
+    return reviewed_tracks
+
+
+def render_loudness_review(tracks):
+    st.divider()
+    st.subheader("Loudness review")
+    st.write(
+        "The typical range is -60 to 0 dB. Values outside this range "
+        "are kept for review; they are not automatically errors."
+    )
+
+    reviewed_tracks = tracks.copy()
+    loudness = pd.to_numeric(tracks["loudness"], errors="coerce")
+    finite = loudness.notna() & np.isfinite(loudness)
+
+    reviewed_tracks["loudness_review"] = (
+        finite & ~loudness.between(-60, 0)
+    )
+    reviewed_tracks["loudness_invalid"] = ~finite
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Below -60 dB", int((finite & loudness.lt(-60)).sum()))
+    col2.metric("Above 0 dB", int((finite & loudness.gt(0)).sum()))
+    col3.metric("Missing or invalid loudness", int((~finite).sum()))
+
+    st.write("Finite loudness summary (dB):")
+    st.dataframe(
+        loudness.loc[finite].agg(["min", "median", "max"]).rename("Loudness (dB)")
+    )
+
+    flagged = (
+        reviewed_tracks["loudness_review"]
+        | reviewed_tracks["loudness_invalid"]
+    )
+    st.write("Tracks requiring review:", int(flagged.sum()))
+    st.dataframe(
+        reviewed_tracks.loc[flagged, [
+            "track_id", "track_name", "artists", "loudness", "energy",
+            "loudness_review", "loudness_invalid",
+        ]]
+    )
+    if reviewed_tracks["loudness_invalid"].any():
+        st.warning(
+            "Missing, non-numeric or infinite loudness values need a treatment "
+            "decision before loudness is used to calculate distances."
+        )
+    st.write("Tracks retained:", len(reviewed_tracks))
+    st.caption("No tracks are removed and original loudness values are preserved.")
 
     return reviewed_tracks

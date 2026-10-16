@@ -6,7 +6,9 @@ from clean.duplicates.duplicates_cleaning import (
 from clean.genres.genres_cleaning import (
     render_track_genres,
 )
+from clean.texts.texts_cleaning import render_text_cleaning
 from clean.values.values_cleaning import (
+    render_loudness_review,
     render_tempo_review,
     render_time_signature_review,
 )
@@ -47,12 +49,18 @@ def main():
 
     #Cleaning process 
     cleaned_data = render_nulls(data)
+    cleaned_data = render_text_cleaning(cleaned_data)
     cleaned_data = render_duplicates(cleaned_data)
 
     track_genres = render_track_genres(cleaned_data)
 
     render_track_conflicts(cleaned_data)
     tracks = render_tracks(cleaned_data)
+
+    # Continue with value reviews for cleaning
+    tracks, excluded_tempo_tracks = render_tempo_review(tracks)
+    tracks = render_time_signature_review(tracks)
+    tracks = render_loudness_review(tracks)
 
     #Modified Genre Table
     genres_before = set(track_genres["track_genre"])
@@ -65,17 +73,6 @@ def main():
 
     st.write("Remaining genres:", len(genres_after))
     st.write("Genres lost:", sorted(genres_before - genres_after))
-
-    # Continue with value reviews for cleaning
-
-    tracks, excluded_tempo_tracks = render_tempo_review(tracks)
-    render_time_signature_review(tracks)
-
-    tracks = render_time_signature_review(tracks)
-
-
-
-
 
 if __name__ == "__main__":
     main()
