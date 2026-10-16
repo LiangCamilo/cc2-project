@@ -1,16 +1,13 @@
 import streamlit as st
 
+from clean.rules import build_track_genres
+
 
 def render_track_genres(data):
     st.divider()
     st.subheader("Track–genre associations")
 
-    track_genres = (
-        data[["track_id", "track_genre"]]
-        .drop_duplicates()
-        .sort_values(["track_id", "track_genre"])
-        .reset_index(drop=True)
-    )
+    track_genres = build_track_genres(data)
 
     st.write("Associations:", len(track_genres))
     st.write("Unique tracks:", track_genres["track_id"].nunique())

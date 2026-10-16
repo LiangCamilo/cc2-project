@@ -1,9 +1,11 @@
 import streamlit as st
 
-from common.data_access import compute_audit
+from clean.rules import consolidate_tracks
 
 
 def render_track_conflicts(data):
+    from common.data_access import compute_audit
+
     st.divider()
     st.subheader("Conflicting values for the same track")
 
@@ -38,30 +40,11 @@ def render_tracks(data):
     st.divider()
     st.subheader("One record per track")
 
-    popularity_by_track = (
-        data[["track_id", "popularity"]]
-        .drop_duplicates()
-        .groupby("track_id", as_index=False)["popularity"]
-        .mean()
-    )
-
-    track_details = (
-        data.drop(columns=["track_genre", "popularity"])
-        .drop_duplicates()
-        .copy()
-    )
-
-    if track_details["track_id"].duplicated().any():
-        st.error(
-            "There are unresolved conflicts in other track fields."
-        )
+    try:
+        tracks = consolidate_tracks(data)
+    except ValueError as error:
+        st.error(str(error))
         st.stop()
-
-    tracks = track_details.merge(
-        popularity_by_track,
-        on="track_id",
-        validate="one_to_one",
-    )
 
     st.write("Tracks:", len(tracks))
     st.write(

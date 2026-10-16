@@ -1,5 +1,7 @@
 import streamlit as st
 
+from clean.rules import remove_incomplete_records
+
 def render_nulls(data):
     st.divider()
     st.write("Rows and Columns:", data.shape)
@@ -18,16 +20,9 @@ def render_nulls(data):
     st.write("Matching rows:", len(related_rows))
     st.dataframe(related_rows)
 
-    rows_to_remove = (
-        data[["artists", "album_name", "track_name"]]
-        .isna()
-        .all(axis=1)
-        & data["duration_ms"].eq(0)
-    )
+    cleaned_data, removed_rows = remove_incomplete_records(data)
 
-    cleaned_data = data.loc[~rows_to_remove].copy()
-
-    st.write("Rows removed:", int(rows_to_remove.sum()))
+    st.write("Rows removed:", len(removed_rows))
     st.write("Remaining rows:", len(cleaned_data))
     st.write(
         "Remaining rows with missing data:",
