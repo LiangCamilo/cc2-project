@@ -19,7 +19,7 @@ class Settings:
     )
     # Validation
     test_size: float = 0.15 # C_test
-    n_folds: int = 5  # Cross validarion on the remaining 85%
+    n_folds: int = 5  # Cross-validation on the remaining 85%
     random_state: int = 42
     # ZTA
     zone_percentiles: dict[str, float] = field(
@@ -29,4 +29,5 @@ class Settings:
     # Paths
     processed_tracks: Path = PROJECT_ROOT / "data" / "processed" / "tracks.csv"
     processed_track_genres: Path = PROJECT_ROOT / "data" / "processed" / "track_genres.csv"
+    partitions_dir: Path = PROJECT_ROOT / "data" / "processed" / "partitions"
     figures_dir: Path = PROJECT_ROOT / "reports" / "figures"

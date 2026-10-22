@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["common", "common.*", "audit", "audit.*", "clean", "clean.*"]
+include = ["common", "common.*", "audit", "audit.*", "clean", "clean.*", "zta", "zta.*"]
 namespaces = false
 
 [tool.pytest.ini_options]
