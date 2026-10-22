@@ -12,7 +12,7 @@ class Settings:
     id_col: str = "track_id"
     popularity_col: str = "popularity"
     genres_col: str = "genres"
-    primary_genre_col: str = "primary_genre"
+    track_genre_col: str = "track_genre"
     features: tuple[str, ...] = (
         "danceability", "energy", "valence", "acousticness",
         "instrumentalness", "liveness", "loudness", "tempo",
@@ -27,5 +27,6 @@ class Settings:
     )
     popularity_lambda: float = 0.0  # 0 - ranking
     # Paths
-    processed_catalog: Path = PROJECT_ROOT / "data" / "processed" / "catalog.csv"
+    processed_tracks: Path = PROJECT_ROOT / "data" / "processed" / "tracks.csv"
+    processed_track_genres: Path = PROJECT_ROOT / "data" / "processed" / "track_genres.csv"
     figures_dir: Path = PROJECT_ROOT / "reports" / "figures"
