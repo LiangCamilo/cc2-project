@@ -15,7 +15,7 @@ class Settings:
     track_genre_col: str = "track_genre"
     features: tuple[str, ...] = (
         "danceability", "energy", "valence", "acousticness",
-        "instrumentalness", "liveness", "loudness", "tempo",
+        "instrumentalness", "liveness", "loudness", "tempo", "speechiness",
     )
     # Validation
     test_size: float = 0.15 # C_test
