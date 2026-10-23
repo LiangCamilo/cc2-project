@@ -34,4 +34,5 @@ class Settings:
     normalization_dir: Path = PROJECT_ROOT / "data" / "processed" / "normalization"
     profile_distances_dir: Path = PROJECT_ROOT / "data" / "processed" / "profile_distances"
     recommendations_dir: Path = PROJECT_ROOT / "data" / "processed" / "recommendations"
+    worked_example_dir: Path = PROJECT_ROOT / "data" / "processed" / "worked_example"
     figures_dir: Path = PROJECT_ROOT / "reports" / "figures"
