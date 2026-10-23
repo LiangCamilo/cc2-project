@@ -1,7 +1,7 @@
 [project]
 name = "cc2-project"
 version = "0.1.0"
-description = "Recomendador musical controlable por el usuario mediante Zonas de Tolerancia Acústica (ZTA)
+description = "Recomendador musical controlable por el usuario mediante Zonas de Tolerancia Acústica (ZTA)"
 requires-python = ">=3.10"
 dependencies = ["numpy", "pandas", "scipy", "scikit-learn", "matplotlib", "seaborn"]
 

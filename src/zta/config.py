@@ -30,4 +30,5 @@ class Settings:
     processed_tracks: Path = PROJECT_ROOT / "data" / "processed" / "tracks.csv"
     processed_track_genres: Path = PROJECT_ROOT / "data" / "processed" / "track_genres.csv"
     partitions_dir: Path = PROJECT_ROOT / "data" / "processed" / "partitions"
+    normalization_dir: Path = PROJECT_ROOT / "data" / "processed" / "normalization"
     figures_dir: Path = PROJECT_ROOT / "reports" / "figures"
