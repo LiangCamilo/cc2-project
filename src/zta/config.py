@@ -33,4 +33,5 @@ class Settings:
     partitions_dir: Path = PROJECT_ROOT / "data" / "processed" / "partitions"
     normalization_dir: Path = PROJECT_ROOT / "data" / "processed" / "normalization"
     profile_distances_dir: Path = PROJECT_ROOT / "data" / "processed" / "profile_distances"
+    recommendations_dir: Path = PROJECT_ROOT / "data" / "processed" / "recommendations"
     figures_dir: Path = PROJECT_ROOT / "reports" / "figures"
