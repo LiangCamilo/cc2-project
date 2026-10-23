@@ -129,6 +129,12 @@ class MinMaxNormalizer:
             training_sha256=_matrix_hash(matrix),
         )
 
+    def validate_training(self, training: pd.DataFrame) -> None:
+        """Check that another fitted component uses this exact training matrix."""
+        matrix = _validated_matrix(training, self.features, self.id_column)
+        if len(matrix) != self.training_rows or _matrix_hash(matrix) != self.training_sha256:
+            raise CatalogContractError("Training rows or values differ from the fitted normalizer's source.")
+
     def transform(self, matrix: pd.DataFrame) -> NormalizedFeatures:
         """Reuse fitted bounds, clip to [0, 1] and preserve row IDs/order."""
         source = _validated_matrix(matrix, self.features, self.id_column, allow_empty=True)

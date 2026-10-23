@@ -26,9 +26,11 @@ class Settings:
         default_factory=lambda: {"familiar": 25.0, "discovery" : 60.0, "exploration" : 90.0}
     )
     popularity_lambda: float = 0.0  # 0 - ranking
+    mahalanobis_regularization: float = 1e-6
     # Paths
     processed_tracks: Path = PROJECT_ROOT / "data" / "processed" / "tracks.csv"
     processed_track_genres: Path = PROJECT_ROOT / "data" / "processed" / "track_genres.csv"
     partitions_dir: Path = PROJECT_ROOT / "data" / "processed" / "partitions"
     normalization_dir: Path = PROJECT_ROOT / "data" / "processed" / "normalization"
+    profile_distances_dir: Path = PROJECT_ROOT / "data" / "processed" / "profile_distances"
     figures_dir: Path = PROJECT_ROOT / "reports" / "figures"
