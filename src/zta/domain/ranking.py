@@ -80,9 +80,34 @@ def _metadata(catalog: pd.DataFrame, ids: pd.Index, settings: Settings) -> pd.Da
     return selected
 
 
+class RankingCatalog:
+    """Validated metadata snapshot for many queries over the same catalog.
+
+    Validation and copying happen once. Queries still validate their distances,
+    seeds and configuration and use exactly the same ranking as rank_zone.
+    """
+
+    def __init__(self, catalog: pd.DataFrame, settings: Settings | None = None) -> None:
+        self._settings = settings or Settings()
+        s = self._settings
+        if not isinstance(catalog, pd.DataFrame) or s.id_col not in catalog.columns:
+            raise CatalogContractError("Ranking metadata require a catalog with song IDs.")
+        self._table = _metadata(catalog, pd.Index(catalog[s.id_col], name=s.id_col), s)
+        # Keep a Python-string index for repeated joins. Arrow-backed string
+        # indexes otherwise rebuild large lookup collections on every query.
+        self._table.index = pd.Index(self._table.index.to_numpy(dtype=object), name=s.id_col, dtype=object)
+
+    def select(self, ids: pd.Index, settings: Settings) -> pd.DataFrame:
+        if settings != self._settings:
+            raise CatalogContractError("Cached ranking metadata use different settings.")
+        if not ids.isin(self._table.index).all():
+            raise CatalogContractError("Some candidate IDs have no matching catalog metadata.")
+        return self._table.loc[ids].copy()
+
+
 def rank_zone(
     candidate_distances: pd.Series,
-    catalog: pd.DataFrame,
+    catalog: pd.DataFrame | RankingCatalog,
     thresholds: ZoneThresholds,
     mode: ListeningMode | str,
     k: int = 10,
@@ -113,7 +138,7 @@ def rank_zone(
     if distances.name != thresholds.metric or distances.index.name != s.id_col:
         raise CatalogContractError("Candidate metric or ID column does not match the calibrated zones.")
     distances = distances.loc[~distances.index.isin(seeds)]
-    metadata = _metadata(catalog, distances.index, s)
+    metadata = catalog.select(distances.index, s) if isinstance(catalog, RankingCatalog) else _metadata(catalog, distances.index, s)
     eligible = distances.loc[band.contains(distances.to_numpy())]
     table = metadata.loc[eligible.index].copy()
     table["distance"] = eligible
