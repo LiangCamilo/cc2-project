@@ -33,9 +33,11 @@ def load_default_recommender() -> MusicRecommender:
 
 
 def _profile(rec: MusicRecommender, data: ProfileInput):
-    if data.seed_ids is not None:
-        return rec.profile_from_songs(data.seed_ids)
-    return rec.profile_from_sliders(**data.sliders.provided())
+    # Sliders are the explicit manual profile; if a client sends both fields
+    # (e.g. from a generic API form), use sliders and ignore seed_ids.
+    if data.sliders is not None:
+        return rec.profile_from_sliders(**data.sliders.provided())
+    return rec.profile_from_songs(data.seed_ids)
 
 
 def _songs(table) -> list[Song]:
@@ -116,7 +118,10 @@ def create_app(recommender: MusicRecommender | None = None) -> FastAPI:
         if body.method == "knn":
             table = rec.nearest_songs(prof, body.k, body.genres, body.dedupe)
             return RecommendResponse(method="knn", mode=None, count=len(table), songs=_songs(table))
-        table = rec.recommend(prof, body.mode, body.k, body.metric, body.genres, body.popularity_lambda, body.dedupe)
+        table = rec.recommend(
+            prof, body.mode, body.k, body.metric, body.genres,
+            body.popularity_lambda, body.dedupe,
+        )
         return RecommendResponse(method="zta", mode=body.mode, count=len(table), songs=_songs(table))
 
     return app

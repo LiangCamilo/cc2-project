@@ -127,7 +127,8 @@ class MusicRecommender:
 
     def recommend(
         self, profile: AcousticProfile, mode: str | ListeningMode = "discovery", k: int = 10,
-        metric: str = "mahalanobis", genres: Sequence[str] | None = None, popularity_lambda: float | None = None,
+        metric: str = "mahalanobis", genres: Sequence[str] | None = None,
+        popularity_lambda: float | None = None, dedupe: bool = True,
     ) -> pd.DataFrame:
         """ZTA: keep songs inside the chosen tolerance zone, rank by distance (and optional popularity penalty)."""
         s = self.settings
@@ -137,12 +138,38 @@ class MusicRecommender:
         allowed = self._allowed(genres)
         if allowed is not None:
             candidates = candidates.loc[candidates.index.isin(allowed)]
-        result = rank_zone(candidates, self.catalog, zones, mode, k, seed_ids=profile.seed_ids,
-                           popularity_lambda=popularity_lambda, settings=s)
+        # When deduplication is requested, rank the full eligible zone first so
+        # repeated releases do not leave the response with fewer than k songs.
+        result = rank_zone(candidates, self.catalog, zones, mode,
+                           max(1, len(candidates)) if dedupe else k,
+                           seed_ids=profile.seed_ids, popularity_lambda=popularity_lambda, settings=s)
         table = result.table.rename(columns={s.genres_col: "genres", s.popularity_col: "popularity"})
+        if dedupe:
+            table = table.drop_duplicates(subset=["track_name", "artists"], keep="first").head(k).copy()
+            table["rank"] = np.arange(1, len(table) + 1)
         return table[COLUMNS].assign(zone=result.mode.value)
 
-    def nearest_songs(self, profile: AcousticProfile, k: int = 10, genres: Sequence[str] | None = None) -> pd.DataFrame:
+    def search_songs(self, query: str, limit: int = 10) -> pd.DataFrame:
+        """Find catalog songs whose title or artist contains the query (case-insensitive)."""
+        import re
+
+        if not isinstance(query, str) or len(query.strip()) < 2:
+            raise ValueError("Search query must contain at least 2 characters.")
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+            raise ValueError("Search limit must be a positive integer.")
+        s = self.settings
+        q = re.escape(query.strip())
+        mask = (self.catalog["track_name"].astype("string").str.contains(q, case=False, na=False) |
+                self.catalog["artists"].astype("string").str.contains(q, case=False, na=False))
+        columns = [s.id_col, "track_name", "artists", s.genres_col, s.popularity_col]
+        found = self.catalog.loc[mask, columns].copy()
+        found = found.sort_values([s.popularity_col, "track_name"], ascending=[False, True], kind="stable").head(limit)
+        return found.rename(columns={s.id_col: "track_id", s.genres_col: "genres", s.popularity_col: "popularity"}).reset_index(drop=True)
+
+    def nearest_songs(
+        self, profile: AcousticProfile, k: int = 10, genres: Sequence[str] | None = None,
+        dedupe: bool = True,
+    ) -> pd.DataFrame:
         """KNN: the k songs closest (Euclidean, normalized space) to the profile."""
         s = self.settings
         space = self._normalized
@@ -150,11 +177,17 @@ class MusicRecommender:
         if allowed is not None:
             space = space.loc[space.index.isin(allowed)]
         seeds = [i for i in profile.seed_ids if i in space.index]
-        index = NearestNeighbors(n_neighbors=min(k + len(seeds), len(space))).fit(space.to_numpy())
+        if space.empty:
+            return pd.DataFrame(columns=COLUMNS)
+        # Query all candidates so deduplication can still return k unique tracks.
+        index = NearestNeighbors(n_neighbors=len(space)).fit(space.to_numpy())
         distance, position = index.kneighbors(np.asarray(profile.centroid, float).reshape(1, -1))
         table = pd.DataFrame({"track_id": space.index[position[0]], "distance": distance[0]})
-        table = table[~table["track_id"].isin(seeds)].head(k).reset_index(drop=True)
+        table = table[~table["track_id"].isin(seeds)]
         info = self._info.loc[table["track_id"]].reset_index(drop=True)
-        table = pd.concat([table, info.rename(columns={s.genres_col: "genres", s.popularity_col: "popularity"})], axis=1)
+        table = pd.concat([table.reset_index(drop=True), info.rename(columns={s.genres_col: "genres", s.popularity_col: "popularity"})], axis=1)
+        if dedupe:
+            table = table.drop_duplicates(subset=["track_name", "artists"], keep="first")
+        table = table.head(k).reset_index(drop=True)
         table.insert(0, "rank", np.arange(1, len(table) + 1))
         return table[COLUMNS]

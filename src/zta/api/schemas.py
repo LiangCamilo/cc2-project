@@ -29,16 +29,16 @@ class Sliders(BaseModel):
 
 
 class ProfileInput(BaseModel):
-    """Describe the user's taste with sliders OR with liked songs (exactly one of them)."""
+    """Describe taste with sliders or liked songs; sliders take precedence if both are sent."""
 
     model_config = ConfigDict(extra="forbid")
     sliders: Sliders | None = None
     seed_ids: list[str] | None = Field(None, min_length=1, max_length=50, description="track_id of liked songs")
 
     @model_validator(mode="after")
-    def _exactly_one(self):
-        if (self.sliders is None) == (self.seed_ids is None):
-            raise ValueError("Provide exactly one of 'sliders' or 'seed_ids'.")
+    def _at_least_one(self):
+        if self.sliders is None and self.seed_ids is None:
+            raise ValueError("Provide either 'sliders' or 'seed_ids'.")
         return self
 
 
