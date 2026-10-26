@@ -29,9 +29,9 @@ from zta.domain import (
     calibrate_zones, rank_zone,
 )
 from zta.domain.profiles import normalization_fingerprint
-from zta.preprocessing import MinMaxNormalizer
 
 from .inference import load_artifact
+from .artifacts import training_context, validate_bundle
 from .registry import MODEL_NAMES
 from .runner import ARTIFACTS_DIR
 
@@ -49,9 +49,9 @@ class MusicRecommender:
         root = Path(artifacts_dir)
         self.genre_models = {name: load_artifact(root / "genre" / f"{name}.joblib") for name in MODEL_NAMES}
         self.popularity_model = load_artifact(root / "popularity" / "rf.joblib")
-        reference = self.genre_models["rf"]
-        self.genres = list(reference["labels"])
-        self.normalizer = MinMaxNormalizer.from_dict(reference["normalizer"])
+        context = training_context(catalog, partitions, s)
+        self.normalizer = validate_bundle(self.genre_models, self.popularity_model, context)
+        self.genres = list(self.genre_models["rf"]["labels"])
 
         self._raw = select_acoustic_features(catalog, s)
         development = partitions.select_features(self._raw, "development", None)
