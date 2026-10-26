@@ -44,6 +44,9 @@ htmlcov/
 data/raw/*
 data/processed/*
 
+# Models Reports
+reports/*
+
 # Mantener las carpetas aunque estén vacías
 !data/raw/.gitkeep
 !data/processed/.gitkeep
