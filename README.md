@@ -11,8 +11,8 @@ supervisados y la evaluación de recomendaciones mediante perfiles sintéticos.
 Las ejecuciones completas y los resultados de referencia se describen más abajo.
 
 También están implementadas una capa de aplicación, una demostración por consola
-y una API HTTP. Su uso con el catálogo real requiere generar los modelos finales,
-etapa todavía pendiente junto con la evaluación final sobre prueba y la
+y una API HTTP. Ya se generaron los modelos finales y se ejecutaron las
+evaluaciones supervisadas y ZTA sobre prueba. Permanece pendiente la
 verificación completa de la aplicación. Las interfaces Streamlit disponibles
 corresponden a auditoría y limpieza.
 
@@ -286,7 +286,7 @@ por sí sola el desempeño de estos predictores sobre centroides de perfiles.
 Las configuraciones elegidas dentro de cada familia, los límites de ajuste de SVR
 y los comandos de la API se detallan en [la guía de modelos](src/zta/models/README.md).
 
-### Comprobaciones reducidas y ajuste final pendiente
+### Comprobaciones reducidas y ajuste final
 
 Para comprobar la conexión de entrenamiento con menos datos, se puede ejecutar:
 
@@ -307,15 +307,37 @@ python -m zta.models --task genre --mode final --confirm-test
 python -m zta.models --task popularity --mode final --confirm-test
 ```
 
-Estos dos comandos corresponden a una etapa pendiente y se deben ejecutar cuando
-se haya decidido realizar la evaluación final. Exigen una validación completa
+Estos comandos se ejecutaron después de cerrar las decisiones de desarrollo.
+Para una reproducción desde cero, exigen una validación completa
 compatible con el catálogo, particiones, configuraciones y versión de
 scikit-learn actuales. Generan modelos `.joblib` en `data/processed/models` y
 `test_metrics.csv` en los reportes de cada tarea.
 
-`--confirm-test` exige una decisión explícita, pero no bloquea una segunda
-ejecución. Se deben conservar los resultados y evitar utilizar prueba para
-escoger nuevas configuraciones.
+`--confirm-test` exige una decisión explícita. Si ya existe `final_manifest.json`,
+se rechaza otra ejecución en ese destino para conservar los resultados finales.
+Se deben mantener también los archivos de validación que fundamentaron la
+selección y evitar escoger nuevas configuraciones mediante prueba.
+
+### Resultados comprobados sobre prueba
+
+Se ajustaron las configuraciones seleccionadas con las 76.145 canciones de
+desarrollo y se evaluaron sobre las 13.438 canciones reservadas. Se incluyó la
+referencia basada en medias de desarrollo. La tabla contiene resultados del
+único conjunto de prueba; no son medias ni desviaciones entre folds.
+
+| Modelo | Géneros: LRAP | Popularidad: RMSE | Popularidad: MAE | Popularidad: R² |
+| --- | ---: | ---: | ---: | ---: |
+| Random Forest | 0.4298 | 18.2538 | 14.2974 | 0.2237 |
+| KNN | 0.3804 | 18.5048 | 14.0837 | 0.2022 |
+| SVM | 0.2775 | 20.0355 | 15.9164 | 0.0648 |
+| Regresión lineal | 0.2273 | 20.3911 | 16.8159 | 0.0313 |
+| Referencia | 0.0454 | 20.7181 | 17.3582 | −0.0001 |
+
+Fuente: `reports/models/{genre,popularity}/test_metrics.csv`. Se conservaron las
+configuraciones de validación; estos resultados no se utilizaron para una nueva
+selección. Los ocho artefactos `.joblib` se guardaron con el mismo normalizador
+ajustado exclusivamente con desarrollo. La referencia se evaluó sin exportar un
+artefacto de inferencia.
 
 ## 7. Evaluación de las recomendaciones ZTA
 
@@ -370,7 +392,8 @@ Todas las listas obtuvieron diez resultados. El 100 % de completitud describe
 disponibilidad de canciones; Precision@10 mide afinidad sintética por género.
 Estos resultados no demuestran precisión superior al 95 % ni satisfacción de
 usuarios. La desviación estándar es descriptiva y no constituye una prueba de
-significancia estadística. El conjunto de prueba permanece reservado.
+significancia estadística. Esta validación no utilizó el conjunto de prueba;
+la evaluación final se presenta a continuación.
 
 Se observó mayor ILD media en los modos más alejados, junto con menor recuperación
 del género objetivo. La popularidad y la cobertura de géneros no siguieron una
@@ -393,8 +416,41 @@ un protocolo completo en el mismo directorio sustituye sus reportes. Si se
 modifica `--popularity-lambda` o los percentiles de `Settings`, se debe utilizar
 un directorio diferente para conservar la comparación original.
 
-Este módulo implementa validación de desarrollo. La evaluación final de listas
-ZTA sobre prueba todavía debe implementarse y ejecutarse tras cerrar la selección.
+### Evaluación final sobre prueba
+
+Después de disponer de la selección completa de desarrollo, se puede ejecutar
+una evaluación final mediante:
+
+```bash
+python -m zta.evaluation --mode final --confirm-test
+```
+
+Este comando verifica la selección y sus huellas, ajusta la normalización y la
+covarianza con desarrollo y utiliza únicamente la distancia elegida. Los perfiles,
+las semillas y las candidatas se toman del conjunto de prueba. Se mantienen las
+cinco semillas, cinco réplicas por género y diez recomendaciones por modo. El
+muestreo utiliza semilla 42 con un espacio de identificadores propio de prueba;
+prueba no se trata como un sexto fold de validación.
+
+Se evaluaron 570 perfiles, 1.710 listas y 17.100 recomendaciones con Mahalanobis.
+Los tres modos obtuvieron listas completas, sin zonas vacías.
+
+| Modo | Precision@10 (%) | Recall@10 (%) | Hit Rate@10 (%) | ILD |
+| --- | ---: | ---: | ---: | ---: |
+| Familiar | 9.86 | 0.7012 | 48.77 | 0.0833 |
+| Descubrimiento | 1.26 | 0.0866 | 10.88 | 0.2207 |
+| Exploración | 0.61 | 0.0413 | 5.61 | 0.2847 |
+
+Fuente: `reports/recommendations/final/test_metrics.csv`. Las cifras son medias
+de perfiles en un único conjunto de prueba. Las columnas `*_profile_std` del CSV
+describen dispersión entre perfiles sintéticos que pueden compartir canciones;
+no representan variación entre folds ni intervalos de confianza.
+
+Los resultados finales, las listas, el modelo de distancia y la comparación con
+validación se guardan en `reports/recommendations/final`. El comando rechaza
+opciones de protocolo reducido, selecciones incompatibles y un destino con
+`manifest.json` final ya existente. No se comparan de nuevo las distancias sobre
+prueba para escoger una ganadora.
 
 ## 8. Resultados generados y trazabilidad
 
@@ -410,11 +466,12 @@ data/
     profile_distances/fold_1/        # Perfil, modelo y distancias
     recommendations/fold_1/         # Seis listas y umbrales
     worked_example/fold_1/          # Ejemplo integrado, tablas y figuras
-    models/                         # Se crea al ejecutar el ajuste final pendiente
+    models/                         # Ocho artefactos finales supervisados
 reports/
   models/genre/                     # Validación supervisada de géneros
   models/popularity/                # Validación supervisada de popularidad
   recommendations/                  # Evaluación de listas ZTA y selección
+    final/                          # Evaluación final de la distancia seleccionada
 ```
 
 Cada carpeta se crea con su comando correspondiente. La limpieza genera también
@@ -459,6 +516,9 @@ reproducibilidad no implica igualdad de todos los archivos byte por byte.
 | `reports/models/<tarea>/cv_summary.csv` | Medias y desviaciones estándar por configuración. |
 | `reports/models/<tarea>/best_configs.json` | Mejor configuración de cada familia para esa tarea. |
 | `reports/models/<tarea>/cv_manifest.json` | Tipo de ejecución, contexto de entrenamiento, versión de scikit-learn y huellas de resultados. |
+| `reports/models/<tarea>/test_metrics.csv` | Métricas finales de las cuatro familias y la referencia. |
+| `reports/models/<tarea>/final_normalizer.json`, `final_normalization_ranges.csv` | Normalizador de desarrollo y comprobaciones de rangos en desarrollo y prueba. |
+| `reports/models/<tarea>/final_manifest.json` | Selección utilizada, huellas de reportes y modelos, versiones y contexto final. |
 | `reports/recommendations/profiles.jsonl` | Perfiles, semillas y todos sus objetivos relevantes. |
 | `reports/recommendations/fold_candidates.csv` | IDs del conjunto de evaluación por fold; se excluyen las semillas de cada perfil. |
 | `reports/recommendations/recommendations.csv` | Listas con IDs, posiciones, distancias, puntuaciones y bandas. |
@@ -469,6 +529,9 @@ reproducibilidad no implica igualdad de todos los archivos byte por byte.
 | `reports/recommendations/fold_*_normalization_ranges.csv` | Rangos y recortes al normalizar entrenamiento y validación. |
 | `reports/recommendations/manifest.json` | Configuración, versiones, cantidades y huellas de entradas lógicas, código y resultados. |
 | `cv_comparison.png` | Gráfico de cada ejecución de validación; ZTA exporta además PDF. |
+| `reports/recommendations/final/test_metrics.csv` | Medias, dispersión descriptiva y cantidades evaluables sobre prueba. |
+| `reports/recommendations/final/validation_test_comparison.csv`, `test_comparison.png` y `.pdf` | Comparación de la configuración seleccionada entre validación y prueba. |
+| `reports/recommendations/final/manifest.json` | Selección congelada, protocolo, separación desarrollo/prueba y huellas finales. |
 
 Las revisiones de referencia conservaron, además, `execution.log` y
 `execution_environment.json` en cada tarea supervisada, así como
@@ -476,6 +539,13 @@ Las revisiones de referencia conservaron, además, `execution.log` y
 proceden de la revisión de la ejecución; los comandos ordinarios de entrenamiento
 no los generan. Los reportes principales de las tablas anteriores permiten
 reproducir y consultar los resultados sin depender de esos archivos adicionales.
+
+La revisión final conservó también `reports/final_evaluation_plan.json`, registros
+`final_execution.log` y `final_execution_environment.json` y comparaciones
+supervisadas `validation_test_comparison.csv`, representadas en
+`reports/models/final_comparison.png` y `.pdf`. Estos archivos adicionales se
+generaron durante la revisión de la ejecución. Los manifiestos ordinarios de los
+módulos conservan las huellas de selección, modelos y reportes principales.
 
 Los datos, reportes y modelos generados permanecen excluidos de Git. Se deben
 conservar junto a sus manifiestos cuando se necesite compartir la evidencia de
@@ -505,9 +575,10 @@ se conservan sin remuestrear ni asumir balance perfecto.
 ### Demostración de recomendaciones y API HTTP
 
 Están implementados `MusicRecommender`, la demostración por terminal y la API
-FastAPI. Para utilizarlos se deben generar primero los cuatro modelos finales
-de géneros y el Random Forest final de popularidad mediante la etapa final de
-la sección 6. La validación cruzada por sí sola no exporta estos modelos.
+FastAPI. Para utilizarlos se debe disponer de los cuatro modelos finales
+de géneros y el Random Forest final de popularidad, ya generados en esta
+ejecución. En una reproducción desde cero se deben obtener mediante la etapa
+final de la sección 6; la validación cruzada por sí sola no los exporta.
 
 Después de disponer de esos artefactos compatibles, se pueden ejecutar:
 
@@ -523,7 +594,8 @@ o controles acústicos, filtros, búsqueda de canciones y peticiones HTTP.
 La API permite escenarios con filtros de género, deduplicación de título/artista
 y consultas al catálogo completo. Su funcionamiento con los artefactos finales
 debe verificarse por separado: la evaluación de la sección 7 utiliza únicamente
-candidatas de validación sin filtro de género y distingue canciones por ID.
+candidatas del conjunto evaluado (validación o prueba) sin filtro de género y
+distingue canciones por ID.
 
 ## 10. Estado y trabajo pendiente
 
@@ -537,15 +609,15 @@ candidatas de validación sin filtro de género y distingue canciones por ID.
 | Simulación por afinidad de género y métricas de listas | Implementada; 2.850 perfiles y 17.100 listas evaluadas. |
 | Selección de configuraciones supervisadas en validación | Completada por familia; Random Forest obtuvo los mejores indicadores principales. |
 | Comparación de distancias ZTA en validación | Completada; Mahalanobis seleccionada por Precision@10 en Familiar. |
-| Ajuste final de modelos supervisados y evaluación sobre prueba | Implementado en el módulo; pendiente de ejecución y generación de artefactos reales. |
-| Evaluación final de listas ZTA sobre prueba | Pendiente de implementación y ejecución. |
+| Ajuste final de modelos supervisados y evaluación sobre prueba | Completado; ocho artefactos guardados y métricas de las cuatro familias y la referencia en ambas tareas. |
+| Evaluación final de listas ZTA sobre prueba | Completada con Mahalanobis: 570 perfiles y 1.710 listas. |
 | Capa de aplicación, demostración y API | Implementadas; pendientes de ejecución completa con artefactos finales del catálogo real. |
 | Verificación de las diez funcionalidades y entrega de la aplicación | Pendiente. |
 
-La formulación matemática, sus ejemplos y la evaluación de desarrollo disponen
-de resultados comprobados. La validación y selección no sustituyen la evaluación
-final sobre prueba ni la verificación de la aplicación. El conjunto de prueba
-permanece reservado durante el recorrido de desarrollo de esta guía.
+La formulación matemática, sus ejemplos y las evaluaciones de desarrollo y
+prueba disponen de resultados comprobados. Prueba se utilizó después de cerrar
+las decisiones de desarrollo. Continúan pendientes la incorporación de los
+resultados finales al entregable y la verificación completa de la aplicación.
 
 ## Problemas frecuentes
 

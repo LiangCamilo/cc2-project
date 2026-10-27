@@ -21,29 +21,35 @@ def positive_integer(value: int, name: str) -> None:
 @dataclass(frozen=True)
 class EvaluationProfile:
     profile_id: str
-    fold: int
+    fold: int | None
     genre: str
     replicate: int
     seed_ids: tuple[str, ...]
     relevant_ids: tuple[str, ...]
+    split: str = "validation"
 
     def to_dict(self) -> dict:
-        return {
+        state = {
             "profile_id": self.profile_id, "fold": self.fold, "genre": self.genre,
             "replicate": self.replicate, "seed_ids": list(self.seed_ids),
             "relevant_ids": list(self.relevant_ids),
         }
+        if self.split == "test":
+            state.pop("fold")
+            state["split"] = "test"
+        return state
 
 
 def generate_profiles(
     evaluation_catalog: pd.DataFrame,
-    fold: int,
+    fold: int | None,
     settings: Settings | None = None,
     *,
     profiles_per_genre: int = 5,
     seed_count: int = 5,
     genres: tuple[str, ...] | None = None,
     genre_universe: tuple[str, ...] | None = None,
+    split: str = "validation",
 ) -> tuple[tuple[EvaluationProfile, ...], pd.DataFrame]:
     """Sample sorted song IDs, independently by fold, genre and replicate.
 
@@ -52,7 +58,11 @@ def generate_profiles(
     A reduced genre selection retains exactly the same cases as a complete run.
     """
     s = settings or Settings()
-    for value, name in ((fold, "fold"), (profiles_per_genre, "profiles_per_genre"), (seed_count, "seed_count")):
+    if split not in ("validation", "test") or (split == "test" and fold is not None):
+        raise CatalogContractError("Test profiles use split='test' without a validation fold.")
+    if split == "validation":
+        positive_integer(fold, "fold")
+    for value, name in ((profiles_per_genre, "profiles_per_genre"), (seed_count, "seed_count")):
         positive_integer(value, name)
     if isinstance(s.random_state, bool) or not isinstance(s.random_state, int) or s.random_state < 0:
         raise CatalogContractError("random_state must be a nonnegative integer.")
@@ -87,20 +97,24 @@ def generate_profiles(
         songs = tuple(sorted(groups.get(genre, ())))
         eligible = len(songs) >= seed_count + 1
         eligibility.append({
-            "fold": fold, "genre": genre, "songs": len(songs), "eligible": eligible,
+            **({"split": "test"} if split == "test" else {"fold": fold}),
+            "genre": genre, "songs": len(songs), "eligible": eligible,
             "profiles": profiles_per_genre if eligible else 0,
             "reason": "eligible" if eligible else "insufficient_songs_for_seeds_and_target",
         })
         if not eligible:
             continue
         for replicate in range(1, profiles_per_genre + 1):
-            key = json.dumps([s.random_state, fold, genre, replicate], ensure_ascii=False).encode("utf-8")
+            # Preserve every existing CV sample; test has its own RNG namespace.
+            namespace = "test" if split == "test" else fold
+            key = json.dumps([s.random_state, namespace, genre, replicate], ensure_ascii=False).encode("utf-8")
             digest = hashlib.sha256(key).hexdigest()
             rng = np.random.default_rng(int(digest, 16))
             seeds = tuple(sorted(str(value) for value in rng.choice(songs, size=seed_count, replace=False)))
             seed_set = set(seeds)
             cases.append(EvaluationProfile(
-                profile_id=f"fold_{fold}_{digest[:24]}", fold=fold, genre=genre,
+                profile_id=f"test_{digest[:24]}" if split == "test" else f"fold_{fold}_{digest[:24]}",
+                fold=fold, genre=genre, split=split,
                 replicate=replicate, seed_ids=seeds,
                 relevant_ids=tuple(value for value in songs if value not in seed_set),
             ))

@@ -175,8 +175,12 @@ def run_final(
     s = settings or Settings()
     model_names = _model_names(task, model_names)
     out = Path(reports_dir) / task
+    if (out / "final_manifest.json").exists():
+        raise ValueError("Final supervised results already exist; preserve them instead of evaluating test again.")
     context = training_context(catalog, partitions, s)
     best = _validate_selection(out, task, model_names, context, partitions)
+    selection_hashes = {name: sha256(out / name) for name in ("cv_manifest.json", "best_configs.json", "cv_summary.csv")}
+    run_start = perf_counter()
     matrix = select_acoustic_features(catalog, s)
     target = build_target(task, catalog, s)
     normalizer, x_dev, x_test, y_dev, y_test = _prepare(matrix, target, partitions, "development", "test", None, s)
@@ -185,30 +189,52 @@ def run_final(
     destination = Path(artifacts_dir) / task
     destination.mkdir(parents=True, exist_ok=True)
     rows = []
-    for name in model_names:
-        params = best[name]["params"]
-        model = build_model(name, task, params, s.random_state)
-        start = perf_counter()
-        model.fit(x_dev.to_numpy(), y_dev.to_numpy())
-        fit_seconds = perf_counter() - start
-        metrics = evaluate(task, y_test.to_numpy(), model.score(x_test.to_numpy()))
-        rows.append({"model": name, "params": json.dumps(params, sort_keys=True), **metrics, "fit_seconds": round(fit_seconds, 2)})
-        joblib.dump({
-            "schema_version": SCHEMA_VERSION, "stage": "final", "training_context": context,
-            "task": task, "name": name, "params": params, "model": model,
-            "features": list(s.features), "id_column": s.id_col, "labels": labels,
-            "normalizer": normalizer.to_dict(), "sklearn": sklearn.__version__,
-        }, destination / f"{name}.joblib", compress=3)
-        print(f"  {name:8s} test: " + ", ".join(f"{k}={v:.4f}" for k, v in metrics.items()), flush=True)
-    result = pd.DataFrame(rows)
-    out.mkdir(parents=True, exist_ok=True)
-    result.to_csv(out / "test_metrics.csv", index=False)
-    (out / "final_manifest.json").write_text(json.dumps({
-        "task": task, "development_rows": len(x_dev), "test_rows": len(x_test),
-        "normalizer_training_sha256": normalizer.training_sha256,
-        "random_state": s.random_state, "sklearn": sklearn.__version__,
-        "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }, indent=2) + "\n", encoding="utf-8")
+    with TemporaryDirectory(prefix=".final-", dir=destination) as temporary:
+        staging = Path(temporary)
+        for name in ("baseline", *model_names):
+            params = {} if name == "baseline" else best[name]["params"]
+            model = build_model(name, task, params, s.random_state)
+            start = perf_counter()
+            model.fit(x_dev.to_numpy(), y_dev.to_numpy())
+            fit_seconds = perf_counter() - start
+            metrics = evaluate(task, y_test.to_numpy(), model.score(x_test.to_numpy()))
+            rows.append({"model": name, "params": json.dumps(params, sort_keys=True), **metrics, "fit_seconds": round(fit_seconds, 2)})
+            if name != "baseline":
+                joblib.dump({
+                    "schema_version": SCHEMA_VERSION, "stage": "final", "training_context": context,
+                    "task": task, "name": name, "params": params, "model": model,
+                    "features": list(s.features), "id_column": s.id_col, "labels": labels,
+                    "normalizer": normalizer.to_dict(), "sklearn": sklearn.__version__,
+                }, staging / f"{name}.joblib", compress=3)
+            print(f"  {name:8s} test: " + ", ".join(f"{k}={v:.4f}" for k, v in metrics.items()), flush=True)
+        result = pd.DataFrame(rows)
+        result.to_csv(staging / "test_metrics.csv", index=False)
+        (staging / "final_normalizer.json").write_text(json.dumps(normalizer.to_dict(), indent=2) + "\n", encoding="utf-8")
+        pd.concat([
+            normalizer.transform(matrix.loc[x_dev.index]).range_report.assign(split="development"),
+            normalizer.transform(matrix.loc[x_test.index]).range_report.assign(split="test"),
+        ]).to_csv(staging / "final_normalization_ranges.csv", index=False)
+        artifact_hashes = {path.name: sha256(path) for path in sorted(staging.glob("*.joblib"))}
+        report_names = ("test_metrics.csv", "final_normalizer.json", "final_normalization_ranges.csv")
+        manifest = {
+            "schema_version": SCHEMA_VERSION, "execution_type": "final_test", "task": task,
+            "models": list(model_names), "baseline_evaluated": True,
+            "development_rows": len(x_dev), "test_rows": len(x_test),
+            "normalizer_training_sha256": normalizer.training_sha256, "training_context": context,
+            "selection_source_sha256": selection_hashes, "test_used_for_fitting_or_selection": False,
+            "random_state": s.random_state, "sklearn": sklearn.__version__, "python": platform.python_version(),
+            "numpy": np.__version__, "pandas": pd.__version__, "joblib": joblib.__version__,
+            "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "elapsed_seconds": perf_counter() - run_start,
+            "artifacts_sha256": artifact_hashes,
+            "files_sha256": {name: sha256(staging / name) for name in report_names},
+            "code_sha256": {str(path.relative_to(PROJECT_ROOT / "src")): sha256(path) for path in sorted((PROJECT_ROOT / "src" / "zta").rglob("*.py"))},
+        }
+        (staging / "final_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        for name in artifact_hashes:
+            os.replace(staging / name, destination / name)
+        for name in (*report_names, "final_manifest.json"):
+            os.replace(staging / name, out / name)
     return result
 
 

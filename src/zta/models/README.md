@@ -5,9 +5,10 @@ Random Forest y SVM), su validación cruzada y su ajuste final. La capa de
 aplicación utiliza sus predicciones como información auxiliar del perfil y genera
 listas mediante ZTA o búsqueda de vecinos. La API HTTP expone estas operaciones.
 
-La validación completa de géneros y popularidad ya fue ejecutada. El ajuste final
-con el catálogo real, la evaluación sobre prueba y la ejecución de la aplicación
-con esos artefactos permanecen pendientes. La preparación completa del entorno y
+La validación completa y el ajuste final de géneros y popularidad ya fueron
+ejecutados sobre el catálogo real, conservando las selecciones de desarrollo.
+La ejecución completa de la aplicación con esos artefactos permanece pendiente.
+La preparación completa del entorno y
 del dataset se describe en el [README principal](../../../README.md).
 
 ## 1. Qué se añadió
@@ -87,9 +88,9 @@ python -m zta.models --task genre --mode cv
 python -m zta.models --task popularity --mode cv
 ```
 
-La siguiente etapa está pendiente. Sus comandos se deben ejecutar cuando se
-cierren las decisiones de desarrollo: ajustan con todo desarrollo y evalúan
-sobre el conjunto de prueba reservado.
+La etapa final se debe ejecutar después de cerrar las decisiones de desarrollo:
+ajusta con todo desarrollo y evalúa sobre prueba. Ya se ejecutó para los
+resultados de referencia de esta guía:
 
 ```bash
 python -m zta.models --task genre --mode final --confirm-test
@@ -114,10 +115,10 @@ particiones, configuraciones y versión de scikit-learn actuales, además de las
 huellas de `best_configs.json`, `cv_folds.csv` y `cv_summary.csv`. Una ejecución
 reducida no habilita el ajuste final.
 
-Repetir una ejecución en su mismo destino sustituye sus reportes. La opción
-`--confirm-test` no impide volver a ejecutar la prueba: se debe cerrar la selección
-antes de utilizarla y conservar la evidencia final sin escoger nuevas
-configuraciones a partir de sus resultados.
+Repetir una validación en su mismo destino sustituye sus reportes. La etapa
+final exige `--confirm-test` y rechaza un destino con `final_manifest.json` ya
+existente. Se deben conservar también los reportes de validación utilizados
+para la selección y no escoger nuevas configuraciones a partir de prueba.
 
 ### Resultados comprobados de validación
 
@@ -159,6 +160,30 @@ La evaluación de listas se ejecuta separadamente mediante `python -m zta.evalua
 y se guarda en `reports/recommendations`. Comparó 2.850 perfiles y seleccionó
 Mahalanobis por Precision@10 de Familiar (10.02 % frente a 9.10 % de Euclidiana).
 El género de relevancia se utiliza solo en el evaluador y no filtra candidatas.
+
+### Resultados finales sobre prueba
+
+Se ajustaron los modelos con 76.145 canciones de desarrollo y se evaluaron sobre
+13.438 canciones de prueba. Se mantuvieron las configuraciones seleccionadas.
+Se evaluó además la referencia basada en medias de desarrollo.
+
+| Modelo | Géneros: LRAP | Popularidad: RMSE | Popularidad: MAE | Popularidad: R² |
+| --- | ---: | ---: | ---: | ---: |
+| Random Forest | 0.4298 | 18.2538 | 14.2974 | 0.2237 |
+| KNN | 0.3804 | 18.5048 | 14.0837 | 0.2022 |
+| SVM | 0.2775 | 20.0355 | 15.9164 | 0.0648 |
+| Regresión lineal | 0.2273 | 20.3911 | 16.8159 | 0.0313 |
+| Referencia | 0.0454 | 20.7181 | 17.3582 | −0.0001 |
+
+Fuente: `reports/models/{genre,popularity}/test_metrics.csv`. Son resultados de
+un único conjunto de prueba, no medias entre folds. La referencia no se exporta
+como modelo de inferencia. Cada tarea conserva el normalizador, sus reportes de
+rangos y `final_manifest.json`, con huellas de selección, artefactos y métricas.
+
+La evaluación final ZTA se ejecutó con
+`python -m zta.evaluation --mode final --confirm-test` y quedó guardada en
+`reports/recommendations/final`: Mahalanobis obtuvo Precision@10 de 9.86 % en
+Familiar sobre 570 perfiles. No se volvió a seleccionar la distancia con prueba.
 
 ## 5. Usar los modelos
 
