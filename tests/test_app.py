@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 import pytest
+from fastapi.testclient import TestClient
 
+from zta.api.main import create_app
 from zta.config import Settings
 from zta.data import CsvCatalogSource, create_partitions
 from zta.models import MODEL_NAMES
@@ -41,6 +43,17 @@ def test_sliders_become_a_valid_profile(recommender):
         recommender.profile_from_sliders(energy=1.5)
     with pytest.raises(ValueError):
         recommender.profile_from_sliders(not_a_feature=0.5)
+
+
+def test_meta_endpoint_returns_feature_ranges_and_defaults(recommender):
+    with TestClient(create_app(recommender)) as client:
+        response = client.get("/meta")
+
+    assert response.status_code == 200
+    metadata = response.json()
+    assert [feature["name"] for feature in metadata["features"]] == list(FEATURES)
+    assert all(0 <= feature["default_slider"] <= 1 for feature in metadata["features"])
+    assert all(feature["min"] <= feature["max"] for feature in metadata["features"])
 
 
 def test_genre_suggestions_cover_the_four_models(recommender):

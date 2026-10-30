@@ -94,6 +94,16 @@ class MusicRecommender:
         return pd.DataFrame({"slider_0_1": slider.round(3), "real_value": (low + slider * (high - low)).round(3)},
                             index=list(profile.features))
 
+    def feature_info(self) -> pd.DataFrame:
+        """Return slider ranges and default positions for the API metadata."""
+        features = self.normalizer.features
+        return pd.DataFrame({
+            "feature": features,
+            "min": self.normalizer.minimum,
+            "max": self.normalizer.maximum,
+            "default_slider": self._development_mean.reindex(features).to_numpy(),
+        })
+
     # --------------------------------------------------------- function 1: genres
     def suggest_genres(self, profile: AcousticProfile, top: int = 5) -> pd.DataFrame:
         """Top genres per model. Random Forest is the best-validated one.
