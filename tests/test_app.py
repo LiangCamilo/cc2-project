@@ -31,7 +31,7 @@ def recommender(tmp_path_factory):
     partitions = create_partitions(catalog)
     for task in ("genre", "popularity"):
         names = MODEL_NAMES if task == "genre" else ("rf",)
-        run_cv(task, names, [1], catalog, partitions, reports_dir=tmp / "reports")
+        run_cv(task, names, range(1, partitions.n_folds + 1), catalog, partitions, reports_dir=tmp / "reports")
         run_final(task, names, catalog, partitions, reports_dir=tmp / "reports", artifacts_dir=tmp / "models")
     return MusicRecommender(catalog, partitions, artifacts_dir=tmp / "models")
 

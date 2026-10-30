@@ -7,11 +7,13 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
-from zta.preprocessing import MinMaxNormalizer
+from .artifacts import validate_artifact
 
 
 def load_artifact(path: str | Path) -> dict:
-    return joblib.load(path)
+    artifact = joblib.load(path)
+    validate_artifact(artifact)
+    return artifact
 
 
 def predict_scores(artifact: dict, raw_features: pd.DataFrame) -> pd.DataFrame:
@@ -19,7 +21,7 @@ def predict_scores(artifact: dict, raw_features: pd.DataFrame) -> pd.DataFrame:
 
     Returns genre scores (one column per genre) or a single `popularity` column.
     """
-    normalizer = MinMaxNormalizer.from_dict(artifact["normalizer"])
+    normalizer = validate_artifact(artifact)
     raw = raw_features[list(artifact["features"])].copy()
     raw.index = pd.Index([str(i) for i in raw.index], name=artifact["id_column"])
     x = normalizer.transform(raw).matrix
