@@ -45,15 +45,10 @@ el entorno o cambien las dependencias.
 `pip install -e .` instala el proyecto y resuelve también las dependencias
 declaradas en `pyproject.toml`.
 
-Para reproducir las versiones de las bibliotecas de entrenamiento utilizadas en
-los resultados de referencia, se debe ejecutar después de la instalación:
-
-```bash
-python -m pip install scikit-learn==1.9.1 scipy==1.18.1 joblib==1.6.0 threadpoolctl==3.7.0
-```
-
-Estas versiones no están fijadas en `requirements.txt`. La ejecución de referencia
-utilizó, además, NumPy 2.5.2, pandas 3.0.5 y Matplotlib 3.11.1, fijados en ese archivo.
+Las versiones de las bibliotecas de entrenamiento utilizadas en los resultados de
+referencia están fijadas en `requirements.txt`: scikit-learn 1.9.1, SciPy 1.18.1,
+joblib 1.6.0 y threadpoolctl 3.7.0. Se instalan con el mismo comando de preparación
+del entorno, junto con NumPy 2.5.2, pandas 3.0.5 y Matplotlib 3.11.1.
 Las versiones y condiciones efectivamente utilizadas quedan registradas en los
 manifiestos y, para los modelos supervisados, en `execution_environment.json`.
 
