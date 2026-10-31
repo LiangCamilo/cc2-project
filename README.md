@@ -10,11 +10,13 @@ modelo matemático ZTA, la validación cruzada de cuatro familias de modelos
 supervisados y la evaluación de recomendaciones mediante perfiles sintéticos.
 Las ejecuciones completas y los resultados de referencia se describen más abajo.
 
-También están implementadas una capa de aplicación, una demostración por consola
-y una API HTTP. Ya se generaron los modelos finales y se ejecutaron las
-evaluaciones supervisadas y ZTA sobre prueba. Permanece pendiente la
-verificación completa de la aplicación. Las interfaces Streamlit disponibles
-corresponden a auditoría y limpieza.
+También están implementadas una capa de aplicación, una demostración por consola,
+una API HTTP y una interfaz web en React. Ya se generaron los modelos finales y
+se ejecutaron las evaluaciones supervisadas y ZTA sobre prueba. Se comprobó el
+funcionamiento de la API y de los recorridos principales de la interfaz con el
+catálogo y los modelos reales. El alcance de estas comprobaciones y los pendientes
+se describen en las secciones 9 y 10. Las interfaces Streamlit corresponden a
+auditoría y limpieza.
 
 ## 1. Preparación del entorno
 
@@ -72,7 +74,7 @@ La versión utilizada tiene 114.000 filas. Los conteos de esta guía corresponde
 a esa entrada y a las reglas actuales; otra versión puede producir resultados
 distintos. El manifiesto de limpieza registra la huella SHA-256 del CSV utilizado.
 
-## 3. Reproducción del recorrido completo
+## 3. Reproducción del recorrido de desarrollo
 
 Con el entorno activo y el CSV disponible, se deben ejecutar los siguientes
 comandos en el orden indicado:
@@ -110,7 +112,9 @@ etapas anteriores.
 Los comandos de validación supervisada y evaluación ZTA necesitan el catálogo y
 las particiones, pero son independientes del ejemplo y de las exportaciones
 intermedias. Este recorrido utiliza entrenamiento y validación de desarrollo;
-no ejecuta el ajuste final ni la evaluación sobre prueba.
+no ejecuta el ajuste final ni la evaluación sobre prueba. Para reproducir también
+esas etapas, se deben seguir los apartados de ajuste y evaluación final de las
+secciones 6 y 7. Después, se puede iniciar la aplicación según la sección 9.
 
 ### Resultados de referencia
 
@@ -587,10 +591,76 @@ La [guía de modelos y API](src/zta/models/README.md) describe perfiles por semi
 o controles acústicos, filtros, búsqueda de canciones y peticiones HTTP.
 
 La API permite escenarios con filtros de género, deduplicación de título/artista
-y consultas al catálogo completo. Su funcionamiento con los artefactos finales
-debe verificarse por separado: la evaluación de la sección 7 utiliza únicamente
-candidatas del conjunto evaluado (validación o prueba) sin filtro de género y
-distingue canciones por ID.
+y consultas al catálogo completo. Estos recorridos se comprobaron con los
+artefactos finales y las 89.583 canciones del catálogo. Se deben distinguir de la
+evaluación de la sección 7, que utiliza únicamente candidatas del conjunto
+evaluado (validación o prueba), sin filtro de género, y distingue canciones por ID.
+
+### Interfaz web React
+
+La aplicación está en `zta-web` y consume la API anterior. Para instalar sus
+dependencias se requiere npm y una versión de Node.js compatible con el
+`package-lock.json`: Node 20 desde 20.19, o Node 22.12 o superior. Las dependencias
+de la interfaz se instalan por separado de las dependencias de Python.
+
+Después de preparar el catálogo y los modelos finales, se debe iniciar la API
+desde la raíz del repositorio, con el entorno virtual activo:
+
+```bash
+python -m zta.api --host 127.0.0.1 --port 8000
+```
+
+En una segunda terminal, también desde la raíz del repositorio, se debe ejecutar:
+
+```bash
+cd zta-web
+npm ci
+npm run dev
+```
+
+Se debe abrir `http://localhost:5173`. La API debe permanecer activa mientras se
+utilice la interfaz. Vite reenvía las peticiones `/api` a
+`http://127.0.0.1:8000`; la configuración predeterminada no requiere modificar
+CORS para este uso local.
+
+La interfaz permite construir perfiles mediante controles acústicos o canciones
+semilla, consultar predicciones de géneros y popularidad, generar recomendaciones
+ZTA y KNN, comparar ambos métodos y ajustar filtros y parámetros. También incluye
+páginas de métricas y un laboratorio para consultar la API. Las cifras de
+«Modelos y métricas» están copiadas de los resultados de referencia en
+`zta-web/src/lib/metrics.js`; esa página no ejecuta una nueva evaluación.
+
+Para compilar y revisar la versión de producción local, se debe ejecutar desde
+`zta-web`, con sus dependencias instaladas:
+
+```bash
+npm run build
+npm run preview
+```
+
+La compilación se guarda en `zta-web/dist` y la vista previa se sirve en
+`http://localhost:4173`. La API debe continuar activa. La
+[guía de la interfaz web](zta-web/README.md) detalla sus páginas y las opciones
+para utilizar otro servidor o puerto.
+
+### Alcance de la revisión funcional
+
+Se ejecutaron las 18 pruebas disponibles en `tests`, todas satisfactorias. Además,
+se realizaron 25 comprobaciones de integración con el catálogo y los modelos
+finales: 24 resultaron satisfactorias. Estas abarcaron búsqueda, perfiles manuales
+y por semillas, predicciones, los tres modos ZTA con ambas distancias, KNN,
+filtros, exclusión de semillas, deduplicación y varias entradas inválidas.
+
+La excepción identificada corresponde a un valor booleano en un control acústico:
+la API lo convierte a un número en lugar de rechazarlo. Este comportamiento se
+mantiene como limitación conocida.
+
+También se comprobó la compilación de la interfaz y, desde el navegador, el
+cálculo de un perfil, la generación de recomendaciones ZTA y la comparación con
+KNN. Estas comprobaciones describen funcionamiento técnico; no acreditan precisión
+predictiva superior al 95 % ni sustituyen la evidencia de las diez funcionalidades
+exigidas por la rúbrica. No se repitió el entrenamiento completo ni la evaluación
+final sobre prueba durante esta revisión funcional.
 
 ## 10. Estado y trabajo pendiente
 
@@ -606,13 +676,19 @@ distingue canciones por ID.
 | Comparación de distancias ZTA en validación | Completada; Mahalanobis seleccionada por Precision@10 en Familiar. |
 | Ajuste final de modelos supervisados y evaluación sobre prueba | Completado; ocho artefactos guardados y métricas de las cuatro familias y la referencia en ambas tareas. |
 | Evaluación final de listas ZTA sobre prueba | Completada con Mahalanobis: 570 perfiles y 1.710 listas. |
-| Capa de aplicación, demostración y API | Implementadas; pendientes de ejecución completa con artefactos finales del catálogo real. |
-| Verificación de las diez funcionalidades y entrega de la aplicación | Pendiente. |
+| Capa de aplicación y API | Implementadas; API comprobada con los artefactos finales y el catálogo real. |
+| Demostración por consola | Implementada; comando disponible en la sección 9. |
+| Interfaz web React | Implementada; compilación y recorridos principales de perfil y recomendaciones comprobados. |
+| Evidencia de las diez funcionalidades para el entregable | Pendiente de organizar y documentar mediante escenarios y capturas. |
+| Precisión superior al 95 % exigida por la rúbrica | No demostrada por las métricas actuales. |
 
 La formulación matemática, sus ejemplos y las evaluaciones de desarrollo y
 prueba disponen de resultados comprobados. Prueba se utilizó después de cerrar
-las decisiones de desarrollo. Continúan pendientes la incorporación de los
-resultados finales al entregable y la verificación completa de la aplicación.
+las decisiones de desarrollo. Los resultados finales ya se incorporaron al
+entregable; permanecen pendientes las correcciones de coherencia de los casos de
+prueba y la evidencia funcional de la aplicación. El funcionamiento comprobado
+no implica cumplimiento completo de la rúbrica ni sustituye la aclaración del
+criterio de precisión aplicable al proyecto.
 
 ## Problemas frecuentes
 
@@ -643,3 +719,10 @@ resultados finales al entregable y la verificación completa de la aplicación.
   etiquetas, características, normalizador y contexto de entrenamiento de una
   misma ejecución compatible. No se deben mezclar artefactos de catálogos o
   versiones de scikit-learn diferentes.
+- **La interfaz muestra «API sin conexión»:** se debe iniciar la API en otra
+  terminal y mantenerla activa. La configuración local predeterminada espera el
+  puerto 8000; para cambiarlo, se debe consultar la guía de `zta-web`.
+- **No se reconoce `npm` o la instalación web rechaza la versión de Node:** se
+  debe instalar Node.js con npm y comprobar que su versión cumpla los requisitos
+  indicados en la sección 9. Las dependencias de Python no incluyen Node.js ni
+  los paquetes de la interfaz.
